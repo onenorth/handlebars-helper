@@ -8,24 +8,17 @@
  * @author Jason Mayes
  */
 
-var handlebarsHelper = (function() {
+var handlebarsHelper = (function(global) {
   var httpRequest;
   var cachedTemplates = {};
   var busy = false;
   var requestStack = [];
   var currentRequest = {};
-
-  function makeRequest(url) {
-    // Check if URL is already in cache.
-    var cacheId = 'id' + url.replace(/^[a-z0-9]+$/i, '');
-    if (cachedTemplates[cacheId]) {
-      document.getElementById(currentRequest.id).innerHTML =
-          cachedTemplates[cacheId](currentRequest.jsonData);
-      popStack();
-    } else {
-      if (window.XMLHttpRequest) {
+  
+  function createRequest() {
+    if (global.XMLHttpRequest) {
         httpRequest = new XMLHttpRequest();
-      } else if (window.ActiveXObject) {
+      } else if (global.ActiveXObject) {
         try {
           httpRequest = new ActiveXObject("Msxml2.XMLHTTP");
         }
@@ -36,14 +29,26 @@ var handlebarsHelper = (function() {
           catch (e) {
           }
         }
+  }
+
+  function loadTemplate(req) {
+    // Check if URL is already in cache.
+    var cacheId = 'id' + req.templateUrl.replace(/^[a-z0-9]+$/i, '');
+    
+    if (cachedTemplates[cacheId]) {
+      document.getElementById(req.id).innerHTML =
+          cachedTemplates[cacheId](req.jsonData);
+      popStack();
+    } else {
+        httpRequest = createRequest();
       }
 
       if (!httpRequest) {
-        console.error('Unable to create httpRequest');
+        console.error('ERROR: Unable to create httpRequest');
         return false;
       }
       httpRequest.onreadystatechange = handleResponse;
-      httpRequest.open('GET', url);
+      httpRequest.open('GET', req.templateUrl);
       httpRequest.send();
     }
   }
@@ -71,7 +76,7 @@ var handlebarsHelper = (function() {
       currentRequest.id = nextRequest.id;
       currentRequest.templateUrl = nextRequest.templateUrl;
       currentRequest.jsonData = nextRequest.jsonData;
-      makeRequest(currentRequest.templateUrl);
+      loadTemplate(currentRequest);
     } else {
       busy = false;
     }
@@ -83,7 +88,7 @@ var handlebarsHelper = (function() {
       currentRequest.id = id;
       currentRequest.templateUrl = templateUrl;
       currentRequest.jsonData = jsonData;
-      makeRequest(templateUrl);
+      loadTemplate(currentRequest);
     } else {
       requestStack.push({'id': id, 'templateUrl': templateUrl,
           'jsonData': jsonData});
@@ -93,4 +98,4 @@ var handlebarsHelper = (function() {
   return {
     populateTemplate: populateTemplateInternal
   }
-})();
+})(global || window);
